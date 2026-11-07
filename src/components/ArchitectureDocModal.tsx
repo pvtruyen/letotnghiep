@@ -34,36 +34,49 @@ CREATE TABLE units (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. Bảng Người dùng & Phân quyền (RBAC)
+-- 2. Bảng Người dùng & Phân quyền (RBAC Master Root: pvtruyen@ctu.edu.vn)
 CREATE TYPE user_role AS ENUM ('SUPER_ADMIN', 'UNIT_ADMIN', 'OPERATOR', 'STUDENT');
 
-CREATE TABLE users (
+CREATE TABLE user_permissions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    email VARCHAR(255) NOT NULL UNIQUE,
-    full_name VARCHAR(255) NOT NULL,
-    role user_role NOT NULL DEFAULT 'STUDENT',
-    unit_id VARCHAR(50) REFERENCES units(id) ON DELETE SET NULL,
-    mssv VARCHAR(20), -- Lưu nếu là tài khoản sinh viên
-    avatar_url TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+    email VARCHAR(255) NOT NULL, -- Email tài khoản được cấp (*@*ctu.edu.vn)
+    role user_role NOT NULL,
+    unit_id VARCHAR(50) REFERENCES units(id) ON DELETE CASCADE, -- Cấp cho đơn vị nếu là UNIT_ADMIN
+    granted_by VARCHAR(255) NOT NULL DEFAULT 'pvtruyen@ctu.edu.vn', -- Master Root
+    granted_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    notes TEXT
 );
 
--- 3. Bảng Danh sách Sinh viên Đủ điều kiện Tốt nghiệp
+-- 3. Bảng Danh sách Sinh viên Đủ điều kiện Tốt nghiệp (20 Cột Chuẩn Hóa)
 CREATE TYPE graduation_honor AS ENUM ('XUAT_SAC', 'GIOI', 'KHA', 'TRUNG_BINH');
 CREATE TYPE photo_status AS ENUM ('NOT_UPLOADED', 'PENDING', 'APPROVED', 'REJECTED');
 
 CREATE TABLE students (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    mssv VARCHAR(20) NOT NULL UNIQUE, -- Khóa chính nghiệp vụ (B2101234)
-    full_name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) NOT NULL UNIQUE,
+    mssv VARCHAR(20) NOT NULL UNIQUE,       -- 1. MSSV (Khóa chính)
+    dot_tn VARCHAR(20) NOT NULL,            -- 2. Dot_TN (Đợt tốt nghiệp)
+    don_vi VARCHAR(50) NOT NULL,            -- 3. DonVi (Mã/Tên đơn vị)
+    qd VARCHAR(100) NOT NULL,               -- 4. QĐ (Số Quyết định tốt nghiệp)
+    ngay_ky VARCHAR(50) NOT NULL,           -- 5. NgayKy (Ngày ký quyết định)
+    ho_ten VARCHAR(255) NOT NULL,           -- 6. Ho_Ten
+    ngay_sinh VARCHAR(20),                  -- 7. Ngay_Sinh
+    nu VARCHAR(10) DEFAULT '0',             -- 8. Nu (Nữ: 1 hoặc Nu)
+    lop VARCHAR(50) NOT NULL,               -- 9. Lop (Mã lớp)
+    nganh VARCHAR(255) NOT NULL,            -- 10. Nganh (Ngành đào tạo)
+    chuyen_nganh VARCHAR(255),              -- 11. Chuyen_nganh
+    diem_tb NUMERIC(3,2) NOT NULL,          -- 12. Diem_TB (GPA)
+    diem_rl INT DEFAULT 85,                 -- 13. Diem_RL (Điểm rèn luyện)
+    tctl INT DEFAULT 150,                   -- 14. TCTL (Tín chỉ tích lũy)
+    xep_loai graduation_honor NOT NULL,     -- 15. Xep_Loai
+    ghi_chu TEXT,                           -- 16. Ghi_chu
+    dan_toc VARCHAR(50) DEFAULT 'Kinh',     -- 17. Dan_Toc
+    khoa VARCHAR(20) NOT NULL,              -- 18. Khoa (Khóa tuyển sinh K47, K46)
+    danh_hieu TEXT,                         -- 19. Danh_hieu (Thủ khoa, Gương sáng...)
+    email VARCHAR(255) NOT NULL,            -- 20. Email (*MSSV*@*ctu.edu.vn)
+    
+    -- Các trường trạng thái ảnh & hàng đợi sân khấu
     unit_id VARCHAR(50) NOT NULL REFERENCES units(id) ON DELETE CASCADE,
-    major VARCHAR(255) NOT NULL, -- Ngành học
-    cohort VARCHAR(20) NOT NULL, -- K47, K46,...
-    honor graduation_honor NOT NULL DEFAULT 'KHA',
-    gpa NUMERIC(3,2) NOT NULL,
-    thesis_title TEXT,
-    photo_url TEXT, -- Lưu đường dẫn Cloud Storage: /avatars/{unit_id}/{mssv}.png
+    photo_url TEXT,                         -- Lưu đường dẫn Cloud Storage: [MSSV].png
     photo_status photo_status DEFAULT 'NOT_UPLOADED',
     photo_uploaded_at TIMESTAMP WITH TIME ZONE,
     is_registered BOOLEAN DEFAULT FALSE,
@@ -74,6 +87,7 @@ CREATE TABLE students (
 
 CREATE INDEX idx_students_mssv ON students(mssv);
 CREATE INDEX idx_students_unit ON students(unit_id);
+CREATE INDEX idx_students_email ON students(email);
 
 -- 4. Bảng Hàng đợi Trình chiếu Sân khấu Thời gian thực (Real-time Queue)
 CREATE TYPE queue_status AS ENUM ('WAITING', 'CALLED', 'ON_STAGE', 'COMPLETED', 'SKIPPED');

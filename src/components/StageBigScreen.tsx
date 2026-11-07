@@ -9,6 +9,7 @@ import {
   Clock,
   Radio,
   X,
+  FileCheck,
 } from 'lucide-react';
 import { QueueItem } from '../types';
 import { triggerDiplomaConfetti } from '../utils/audioUtils';
@@ -35,17 +36,14 @@ export const StageBigScreen: React.FC<StageBigScreenProps> = ({ currentQueue, on
     return () => unsubscribe();
   }, []);
 
-  // Cập nhật khi prop thay đổi
   useEffect(() => {
     setQueue(currentQueue);
   }, [currentQueue]);
 
-  // Tìm sinh viên đang trên sân khấu
   const onStageItem = queue.find((q) => q.status === 'ON_STAGE');
   const waitingNext = queue.filter((q) => q.status === 'WAITING' || q.status === 'CALLED');
   const nextStudent = waitingNext[0];
 
-  // Kích hoạt pháo hoa khi có sinh viên mới bước lên bục
   useEffect(() => {
     if (onStageItem && onStageItem.studentMssv !== lastStudentMssv) {
       setLastStudentMssv(onStageItem.studentMssv);
@@ -53,7 +51,6 @@ export const StageBigScreen: React.FC<StageBigScreenProps> = ({ currentQueue, on
     }
   }, [onStageItem, lastStudentMssv]);
 
-  // Bật/tắt chế độ toàn màn hình (Fullscreen F11)
   const toggleFullscreen = () => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(() => {});
@@ -65,7 +62,7 @@ export const StageBigScreen: React.FC<StageBigScreenProps> = ({ currentQueue, on
   };
 
   const honor = onStageItem ? formatHonor(onStageItem.student.honor) : null;
-  const isEngineer = onStageItem?.student.major.toLowerCase().includes('kỹ thuật');
+  const isEngineer = onStageItem?.student.major?.toLowerCase().includes('kỹ thuật');
 
   return (
     <div className="fixed inset-0 z-50 bg-[#060d1a] text-white flex flex-col justify-between overflow-hidden select-none font-sans">
@@ -92,7 +89,6 @@ export const StageBigScreen: React.FC<StageBigScreenProps> = ({ currentQueue, on
           </div>
         </div>
 
-        {/* Nút điều khiển màn hình LED */}
         <div className="flex items-center space-x-3">
           <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-mono">
             <Radio className="w-3.5 h-3.5 animate-pulse" />
@@ -123,13 +119,11 @@ export const StageBigScreen: React.FC<StageBigScreenProps> = ({ currentQueue, on
       <main className="relative z-10 flex-1 flex items-center justify-center p-6 md:p-12">
         {onStageItem ? (
           <div className="w-full max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
-            {/* Cột 1: ẢNH CHÂN DUNG MSSV.PNG (Khung Lễ phục Vàng Hoàng Gia) */}
+            {/* Cột 1: ẢNH CHÂN DUNG MSSV.PNG */}
             <div className="lg:col-span-5 flex justify-center">
               <div className="relative group">
-                {/* Viền hào quang vàng */}
                 <div className="absolute -inset-2 bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 rounded-3xl blur-md opacity-75 group-hover:opacity-100 transition duration-1000 animate-pulse" />
 
-                {/* Khung ảnh chính */}
                 <div className="relative w-[280px] sm:w-[340px] md:w-[380px] h-[380px] sm:h-[460px] md:h-[510px] rounded-2xl overflow-hidden border-4 border-amber-400/90 shadow-2xl bg-slate-950 flex flex-col justify-end">
                   {onStageItem.student.photoUrl ? (
                     <img
@@ -144,7 +138,6 @@ export const StageBigScreen: React.FC<StageBigScreenProps> = ({ currentQueue, on
                     </div>
                   )}
 
-                  {/* Nhãn tên file MSSV.png ở góc ảnh */}
                   <div className="absolute bottom-3 right-3 px-2.5 py-1 rounded-md bg-black/75 backdrop-blur-md border border-amber-400/40 font-mono text-[11px] text-amber-300 font-bold">
                     {onStageItem.student.mssv}.png
                   </div>
@@ -168,8 +161,15 @@ export const StageBigScreen: React.FC<StageBigScreenProps> = ({ currentQueue, on
                 )}
 
                 <span className="px-3.5 py-1.5 rounded-full text-xs font-mono font-bold bg-slate-800/80 text-blue-300 border border-slate-700">
-                  {onStageItem.student.cohort}
+                  {onStageItem.student.lop} ({onStageItem.student.cohort})
                 </span>
+
+                {onStageItem.student.danhHieu && (
+                  <span className="px-4 py-1.5 rounded-full text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-400/50 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    {onStageItem.student.danhHieu}
+                  </span>
+                )}
               </div>
 
               {/* Tên sinh viên cỡ lớn chuẩn màn LED */}
@@ -182,7 +182,7 @@ export const StageBigScreen: React.FC<StageBigScreenProps> = ({ currentQueue, on
                 </h2>
               </div>
 
-              {/* Ngành học & Mã sinh viên */}
+              {/* Ngành học, Chuyên ngành & Quyết định tốt nghiệp */}
               <div className="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 shadow-xl space-y-3">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
@@ -190,6 +190,11 @@ export const StageBigScreen: React.FC<StageBigScreenProps> = ({ currentQueue, on
                     <strong className="text-lg md:text-xl text-blue-300 font-semibold block mt-0.5">
                       {onStageItem.student.major}
                     </strong>
+                    {onStageItem.student.chuyenNganh && onStageItem.student.chuyenNganh !== onStageItem.student.major && (
+                      <span className="text-xs text-slate-400 block mt-0.5">
+                        Chuyên ngành: {onStageItem.student.chuyenNganh}
+                      </span>
+                    )}
                   </div>
 
                   <div>
@@ -197,20 +202,21 @@ export const StageBigScreen: React.FC<StageBigScreenProps> = ({ currentQueue, on
                     <strong className="text-lg md:text-xl font-mono text-amber-400 font-bold block mt-0.5">
                       {onStageItem.student.mssv}
                     </strong>
+                    <span className="text-xs text-slate-400 block mt-0.5">
+                      Điểm TB tích lũy: <strong className="text-amber-300">{onStageItem.student.gpa.toFixed(2)}</strong> (ĐRL: {onStageItem.student.diemRl}đ)
+                    </span>
                   </div>
                 </div>
 
-                {onStageItem.student.thesisTitle && (
-                  <div className="pt-2 border-t border-slate-800/80 text-left">
-                    <span className="text-xs text-slate-400 uppercase tracking-wider block">Đề tài khóa luận:</span>
-                    <p className="text-xs sm:text-sm text-slate-200 italic mt-0.5 leading-relaxed">
-                      &quot;{onStageItem.student.thesisTitle}&quot;
-                    </p>
-                  </div>
-                )}
+                <div className="pt-2 border-t border-slate-800/80 flex flex-wrap items-center justify-between text-xs text-slate-300">
+                  <span className="flex items-center gap-1.5">
+                    <FileCheck className="w-3.5 h-3.5 text-blue-400" />
+                    Số Quyết định: <strong>{onStageItem.student.qd}</strong> (Ký ngày {onStageItem.student.ngayKy})
+                  </span>
+                  <span>Đợt tốt nghiệp: <strong>{onStageItem.student.dotTn}</strong></span>
+                </div>
               </div>
 
-              {/* Lời chúc mừng */}
               <div className="flex items-center justify-center lg:justify-start gap-2 text-amber-300/90 text-sm font-medium">
                 <Sparkles className="w-5 h-5 text-amber-400 animate-spin" />
                 <span>Nhiệt liệt chúc mừng Tân cử nhân đã hoàn thành xuất sắc chương trình đào tạo!</span>
@@ -218,7 +224,6 @@ export const StageBigScreen: React.FC<StageBigScreenProps> = ({ currentQueue, on
             </div>
           </div>
         ) : (
-          /* Màn hình chờ khi chưa có sinh viên trên sân khấu */
           <div className="text-center space-y-6 max-w-xl p-8 rounded-3xl bg-slate-900/60 border border-slate-800/80 backdrop-blur-lg">
             <div className="w-24 h-24 rounded-3xl bg-gradient-to-tr from-blue-600/30 to-amber-500/20 border-2 border-amber-400/40 flex items-center justify-center mx-auto text-amber-400">
               <GraduationCap className="w-12 h-12" />
@@ -252,7 +257,7 @@ export const StageBigScreen: React.FC<StageBigScreenProps> = ({ currentQueue, on
         )}
       </main>
 
-      {/* FOOTER TICKER: DÒNG CHỮ CHẠY VÀ THÔNG BÁO KẾ TIẾP */}
+      {/* FOOTER TICKER */}
       <footer className="relative z-10 px-8 py-3.5 bg-slate-950/80 border-t border-slate-800/80 backdrop-blur-md flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
         <div className="flex items-center space-x-2 text-slate-400">
           <Clock className="w-4 h-4 text-blue-400" />

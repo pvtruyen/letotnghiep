@@ -4,17 +4,20 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { CeremonyAnnouncement, QueueItem, Student, Unit, UserRole } from './types';
+import { CeremonyAnnouncement, QueueItem, Student, Unit, UserPermission, UserRole } from './types';
 import {
-  getAnnouncement,
+  getAllAnnouncements,
+  getPermissions,
   getQueue,
   getStudents,
   getUnits,
+  grantUserPermission,
   moveQueueItemToEnd,
   pushToQueue,
   removeFromQueue,
   resetDatabaseToDefaults,
-  saveAnnouncement,
+  revokeUserPermission,
+  saveAnnouncementForUnit,
   saveStudents,
   saveUnits,
   subscribeToRealtimeQueue,
@@ -28,14 +31,17 @@ import { OperatorConsole } from './components/OperatorConsole';
 import { StageBigScreen } from './components/StageBigScreen';
 import { SuperAdminPortal } from './components/SuperAdminPortal';
 import { ArchitectureDocModal } from './components/ArchitectureDocModal';
+import { canAccessRole, SUPER_ADMIN_MASTER_EMAIL } from './utils/authUtils';
+import { Lock, ShieldAlert, ArrowLeft, Key } from 'lucide-react';
 
 export default function App() {
   const [currentRole, setCurrentRole] = useState<UserRole>('STUDENT');
-  const [currentEmail, setCurrentEmail] = useState<string>('pvtruyen@ctu.edu.vn');
+  const [currentEmail, setCurrentEmail] = useState<string>(SUPER_ADMIN_MASTER_EMAIL);
   const [units, setUnits] = useState<Unit[]>([]);
   const [currentUnit, setCurrentUnit] = useState<Unit | null>(null);
   const [students, setStudents] = useState<Student[]>([]);
-  const [announcement, setAnnouncement] = useState<CeremonyAnnouncement | null>(null);
+  const [announcements, setAnnouncements] = useState<CeremonyAnnouncement[]>([]);
+  const [permissions, setPermissions] = useState<UserPermission[]>([]);
   const [queue, setQueue] = useState<QueueItem[]>([]);
 
   const [isArchitectureModalOpen, setIsArchitectureModalOpen] = useState<boolean>(false);
@@ -45,13 +51,15 @@ export default function App() {
   useEffect(() => {
     const loadedUnits = getUnits();
     const loadedStudents = getStudents();
-    const loadedAnnouncement = getAnnouncement();
+    const loadedAnnouncements = getAllAnnouncements();
+    const loadedPermissions = getPermissions();
     const loadedQueue = getQueue();
 
     setUnits(loadedUnits);
     setCurrentUnit(loadedUnits[0] || null);
     setStudents(loadedStudents);
-    setAnnouncement(loadedAnnouncement);
+    setAnnouncements(loadedAnnouncements);
+    setPermissions(loadedPermissions);
     setQueue(loadedQueue);
 
     // Đăng ký đồng bộ Real-time đa màn hình
@@ -60,61 +68,82 @@ export default function App() {
         setQueue(getQueue());
       } else if (event.action === 'DATABASE_RESET') {
         setUnits(getUnits());
+        setCurrentUnit(getUnits()[0] || null);
         setStudents(getStudents());
-        setAnnouncement(getAnnouncement());
+        setAnnouncements(getAllAnnouncements());
+        setPermissions(getPermissions());
         setQueue(getQueue());
+      } else if (event.action === 'PERMISSIONS_UPDATED') {
+        setPermissions(getPermissions());
+      } else if (event.action === 'ANNOUNCEMENTS_UPDATED') {
+        setAnnouncements(getAllAnnouncements());
       }
     });
 
     return () => unsubscribe();
   }, []);
 
-  // Xử lý cập nhật ảnh sinh viên
+  // Kiểm tra quyền của tài khoản hiện tại đối với phân hệ đang chọn
+  const accessCheck = canAccessRole(currentEmail, currentRole, currentUnit?.id, permissions);
+
+  // Cập nhật ảnh sinh viên
   const handleUpdatePhoto = (mssv: string, photoDataUrl: string) => {
     updateStudentPhoto(mssv, photoDataUrl);
     setStudents(getStudents());
     setQueue(getQueue());
   };
 
-  // Xử lý cập nhật danh sách sinh viên
+  // Cập nhật danh sách sinh viên
   const handleUpdateStudents = (newStudents: Student[]) => {
     saveStudents(newStudents);
     setStudents(newStudents);
     setQueue(getQueue());
   };
 
-  // Xử lý cập nhật thông báo
+  // Cập nhật cấu hình thông báo riêng của từng đơn vị
   const handleUpdateAnnouncement = (newAnn: CeremonyAnnouncement) => {
-    saveAnnouncement(newAnn);
-    setAnnouncement(newAnn);
+    saveAnnouncementForUnit(newAnn);
+    setAnnouncements(getAllAnnouncements());
   };
 
-  // Xử lý cập nhật đơn vị
+  // Cập nhật đơn vị
   const handleUpdateUnits = (newUnits: Unit[]) => {
     saveUnits(newUnits);
     setUnits(newUnits);
   };
 
-  // Xử lý đẩy sinh viên vào hàng đợi sau khi quét QR
+  // Cấp quyền cho email mới
+  const handleGrantPermission = (perm: Omit<UserPermission, 'id' | 'grantedAt'>) => {
+    grantUserPermission(perm);
+    setPermissions(getPermissions());
+  };
+
+  // Thu hồi quyền
+  const handleRevokePermission = (id: string) => {
+    revokeUserPermission(id);
+    setPermissions(getPermissions());
+  };
+
+  // Đẩy sinh viên vào hàng đợi sau khi quét QR
   const handlePushToQueue = (mssv: string) => {
     const res = pushToQueue(mssv);
     setQueue(getQueue());
     return res;
   };
 
-  // Xử lý cập nhật trạng thái hàng đợi (Gọi lên bục, Hoàn thành)
+  // Cập nhật trạng thái hàng đợi (Gọi lên bục, Hoàn thành)
   const handleUpdateQueueStatus = (queueItemId: string, status: QueueItem['status']) => {
     updateQueueItemStatus(queueItemId, status);
     setQueue(getQueue());
   };
 
-  // Xử lý đưa xuống cuối hàng
+  // Đưa xuống cuối hàng
   const handleMoveToEnd = (queueItemId: string) => {
     moveQueueItemToEnd(queueItemId);
     setQueue(getQueue());
   };
 
-  // Xử lý xóa khỏi hàng
+  // Xóa khỏi hàng
   const handleRemoveQueueItem = (queueItemId: string) => {
     removeFromQueue(queueItemId);
     setQueue(getQueue());
@@ -126,11 +155,12 @@ export default function App() {
     setUnits(getUnits());
     setCurrentUnit(getUnits()[0] || null);
     setStudents(getStudents());
-    setAnnouncement(getAnnouncement());
+    setAnnouncements(getAllAnnouncements());
+    setPermissions(getPermissions());
     setQueue(getQueue());
   };
 
-  if (!currentUnit || !announcement) {
+  if (!currentUnit || announcements.length === 0) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400 text-sm">
         Đang khởi động hệ thống CTU GradStage...
@@ -138,59 +168,132 @@ export default function App() {
     );
   }
 
+  // Lấy announcement của đơn vị đang chọn cho Unit Admin
+  const currentUnitAnnouncement =
+    announcements.find((a) => a.unitId === currentUnit.id) || {
+      id: `ann_${currentUnit.id.toLowerCase()}`,
+      unitId: currentUnit.id,
+      unitName: currentUnit.name,
+      title: `LỄ TRAO BẰNG TỐT NGHIỆP ${currentUnit.name.toUpperCase()} - 2026`,
+      content: `Kế hoạch tổ chức Lễ trao bằng tốt nghiệp của ${currentUnit.name}.`,
+      ceremonyDate: '2026-11-28T07:30:00Z',
+      location: 'Hội trường Rùa CTU',
+      dressCode: 'Lễ phục tốt nghiệp CTU',
+      contactSupport: currentUnit.adminEmail || 'support@ctu.edu.vn',
+      updatedAt: new Date().toISOString(),
+    };
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-blue-600 selection:text-white">
-      {/* Thanh điều hướng và chuyển đổi vai trò */}
+      {/* Header và Thanh chuyển phân hệ RBAC */}
       <Header
         currentRole={currentRole}
         onSelectRole={setCurrentRole}
+        currentEmail={currentEmail}
+        onSelectEmail={setCurrentEmail}
+        permissions={permissions}
         onOpenArchitectureModal={() => setIsArchitectureModalOpen(true)}
         onOpenBigScreenModal={() => setIsBigScreenModalOpen(true)}
       />
 
-      {/* Thân ứng dụng tương ứng với vai trò người dùng */}
+      {/* Thân ứng dụng: Kiểm tra quyền truy cập */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {currentRole === 'STUDENT' && (
-          <StudentPortal
-            currentEmail={currentEmail}
-            onEmailChange={setCurrentEmail}
-            students={students}
-            announcement={announcement}
-            onUpdatePhoto={handleUpdatePhoto}
-          />
-        )}
+        {!accessCheck.allowed ? (
+          /* MÀN HÌNH KHÓA TRUY CẬP (ACCESS RESTRICTED VIEW) */
+          <div className="max-w-xl mx-auto my-12 bg-slate-900 border-2 border-rose-500/50 rounded-3xl p-8 text-center space-y-5 shadow-2xl">
+            <div className="w-20 h-20 rounded-3xl bg-rose-500/10 text-rose-400 border border-rose-500/20 flex items-center justify-center mx-auto shadow-inner">
+              <Lock className="w-10 h-10" />
+            </div>
 
-        {currentRole === 'UNIT_ADMIN' && (
-          <UnitAdminPortal
-            currentUnit={currentUnit}
-            units={units}
-            onSelectUnit={setCurrentUnit}
-            students={students}
-            onUpdateStudents={handleUpdateStudents}
-            announcement={announcement}
-            onUpdateAnnouncement={handleUpdateAnnouncement}
-          />
-        )}
+            <div className="space-y-2">
+              <span className="px-3 py-1 rounded-full text-xs font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                PHÂN HỆ BỊ KHÓA TRUY CẬP
+              </span>
+              <h3 className="text-xl font-bold text-white">Bạn Không Có Quyền Vào Phân Hệ Này</h3>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Tài khoản <strong className="font-mono text-rose-300">{currentEmail}</strong> chưa được cấp quyền truy cập phân hệ <strong>{currentRole}</strong>.
+              </p>
+            </div>
 
-        {currentRole === 'OPERATOR' && (
-          <OperatorConsole
-            queue={queue}
-            students={students}
-            onPushToQueue={handlePushToQueue}
-            onUpdateStatus={handleUpdateQueueStatus}
-            onMoveToEnd={handleMoveToEnd}
-            onRemoveItem={handleRemoveQueueItem}
-            onOpenBigScreen={() => setIsBigScreenModalOpen(true)}
-          />
-        )}
+            <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 text-left text-xs space-y-1.5 text-slate-400">
+              <div className="flex items-center gap-1.5 text-purple-400 font-semibold">
+                <Key className="w-3.5 h-3.5" />
+                <span>Quy định phân quyền:</span>
+              </div>
+              <p className="leading-relaxed">
+                Chỉ Quản trị viên tối cao (<code className="text-purple-300 font-mono">{SUPER_ADMIN_MASTER_EMAIL}</code>) mới có thẩm quyền mở khóa và cấp quyền cho từng tài khoản vào phân hệ này.
+              </p>
+            </div>
 
-        {currentRole === 'SUPER_ADMIN' && (
-          <SuperAdminPortal
-            units={units}
-            onUpdateUnits={handleUpdateUnits}
-            students={students}
-            onResetSystemData={handleResetData}
-          />
+            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+              <button
+                onClick={() => setCurrentRole('STUDENT')}
+                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer"
+              >
+                <ArrowLeft className="w-4 h-4" /> Về Cổng Sinh viên
+              </button>
+
+              <button
+                onClick={() => {
+                  setCurrentEmail(SUPER_ADMIN_MASTER_EMAIL);
+                }}
+                className="px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-lg shadow-purple-600/30 transition cursor-pointer"
+              >
+                <ShieldAlert className="w-4 h-4" /> Chuyển sang {SUPER_ADMIN_MASTER_EMAIL} (Master)
+              </button>
+            </div>
+          </div>
+        ) : (
+          /* NỘI DUNG PHÂN HỆ KHI ĐÃ ĐƯỢC CẤP QUYỀN */
+          <>
+            {currentRole === 'STUDENT' && (
+              <StudentPortal
+                currentEmail={currentEmail}
+                onEmailChange={setCurrentEmail}
+                units={units}
+                students={students}
+                announcements={announcements}
+                onUpdatePhoto={handleUpdatePhoto}
+              />
+            )}
+
+            {currentRole === 'UNIT_ADMIN' && (
+              <UnitAdminPortal
+                currentUnit={currentUnit}
+                units={units}
+                onSelectUnit={setCurrentUnit}
+                students={students}
+                onUpdateStudents={handleUpdateStudents}
+                announcement={currentUnitAnnouncement}
+                onUpdateAnnouncement={handleUpdateAnnouncement}
+              />
+            )}
+
+            {currentRole === 'OPERATOR' && (
+              <OperatorConsole
+                queue={queue}
+                students={students}
+                onPushToQueue={handlePushToQueue}
+                onUpdateStatus={handleUpdateQueueStatus}
+                onMoveToEnd={handleMoveToEnd}
+                onRemoveItem={handleRemoveQueueItem}
+                onOpenBigScreen={() => setIsBigScreenModalOpen(true)}
+              />
+            )}
+
+            {currentRole === 'SUPER_ADMIN' && (
+              <SuperAdminPortal
+                currentEmail={currentEmail}
+                units={units}
+                onUpdateUnits={handleUpdateUnits}
+                students={students}
+                permissions={permissions}
+                onGrantPermission={handleGrantPermission}
+                onRevokePermission={handleRevokePermission}
+                onResetSystemData={handleResetData}
+              />
+            )}
+          </>
         )}
       </main>
 

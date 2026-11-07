@@ -14,8 +14,13 @@ import {
   PhoneCall,
   UserCheck,
   CheckCircle,
+  Building2,
+  Award,
+  BookOpen,
+  ArrowRight,
+  ShieldCheck,
 } from 'lucide-react';
-import { CeremonyAnnouncement, Student } from '../types';
+import { CeremonyAnnouncement, Student, Unit } from '../types';
 import { formatHonor, validateCtuEmailAndExtractMssv } from '../utils/authUtils';
 import { generateQrMatrix, generateStudentQrPayload } from '../utils/qrUtils';
 import { CropModal } from './CropModal';
@@ -23,116 +28,273 @@ import { CropModal } from './CropModal';
 interface StudentPortalProps {
   currentEmail: string;
   onEmailChange: (email: string) => void;
+  units: Unit[];
   students: Student[];
-  announcement: CeremonyAnnouncement;
+  announcements: CeremonyAnnouncement[];
   onUpdatePhoto: (mssv: string, photoDataUrl: string) => void;
 }
 
 export const StudentPortal: React.FC<StudentPortalProps> = ({
   currentEmail,
   onEmailChange,
+  units,
   students,
-  announcement,
+  announcements,
   onUpdatePhoto,
 }) => {
-  const [emailInput, setEmailInput] = useState<string>(currentEmail || 'b2101234@student.ctu.edu.vn');
+  const [emailInput, setEmailInput] = useState<string>(currentEmail || 'pvtruyen_b2001122@ctu.edu.vn');
+  const [selectedUnitId, setSelectedUnitId] = useState<string>('DI');
   const [isCropModalOpen, setIsCropModalOpen] = useState<boolean>(false);
   const [showQrTicket, setShowQrTicket] = useState<boolean>(false);
 
-  // Phân tích email CTU và trích xuất MSSV
+  // Phân tích email CTU và trích xuất MSSV (chấp nhận *MSSV*@*ctu.edu.vn)
   const emailAuthResult = validateCtuEmailAndExtractMssv(emailInput);
   const studentMatch = emailAuthResult.extractedMssv
     ? students.find((s) => s.mssv.toUpperCase() === emailAuthResult.extractedMssv?.toUpperCase())
     : null;
 
+  // Lấy sự kiện của đơn vị được chọn hoặc tìm theo unitId của sinh viên
+  const activeAnnouncement =
+    announcements.find((a) => a.unitId === selectedUnitId) || announcements[0];
+
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onEmailChange(emailInput);
+    if (studentMatch) {
+      setSelectedUnitId(studentMatch.unitId);
+    }
   };
 
-  const handleQuickStudentSelect = (mssv: string, email: string) => {
+  const handleQuickStudentSelect = (email: string, targetUnitId: string) => {
     setEmailInput(email);
     onEmailChange(email);
+    setSelectedUnitId(targetUnitId);
   };
 
   const honorInfo = studentMatch ? formatHonor(studentMatch.honor) : null;
 
   return (
     <div className="space-y-8">
-      {/* 1. Thanh giả lập Đăng nhập Google SSO (@*.ctu.edu.vn) */}
+      {/* 1. THANH ĐĂNG NHẬP GOOGLE WORKSPACE SSO (*MSSV*@*ctu.edu.vn) */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="flex items-center space-x-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-600/20 text-blue-400 flex items-center justify-center border border-blue-500/30">
+          <div className="flex items-center space-x-3.5">
+            <div className="w-11 h-11 rounded-xl bg-blue-600/20 text-blue-400 flex items-center justify-center border border-blue-500/30 shrink-0">
               <GraduationCap className="w-6 h-6" />
             </div>
             <div>
-              <h2 className="font-semibold text-white text-base">Cổng Đăng Ký Lễ Tốt Nghiệp (Student Portal)</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="font-bold text-white text-base">Cổng Đăng Ký Lễ Tốt Nghiệp (Student Portal)</h2>
+                <span className="px-2 py-0.5 rounded-full text-[11px] bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                  Google SSO
+                </span>
+              </div>
               <p className="text-xs text-slate-400">
-                Xác thực bằng Google Workspace Đại học Cần Thơ (<code className="text-blue-400">@*.ctu.edu.vn</code>)
+                Quy định email: Trong tên email có chứa MSSV là được (<code className="text-blue-400 font-mono">*MSSV*@*ctu.edu.vn</code>)
               </p>
             </div>
           </div>
 
-          {/* Form đăng nhập email */}
+          {/* Form nhập email SSO */}
           <form onSubmit={handleLoginSubmit} className="flex flex-wrap items-center gap-2">
             <div className="relative">
               <input
-                type="email"
+                type="text"
                 value={emailInput}
                 onChange={(e) => setEmailInput(e.target.value)}
-                placeholder="b2101234@student.ctu.edu.vn"
-                className="bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-sm text-slate-200 placeholder-slate-500 focus:outline-none focus:border-blue-500 w-72"
+                placeholder="Ví dụ: b2101234@student.ctu.edu.vn hoặc sv_b2101234@ctu.edu.vn..."
+                className="bg-slate-950 border border-slate-700 rounded-xl px-3.5 py-2 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500 w-80 font-mono"
               />
             </div>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-xl shadow-md transition"
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl shadow-md transition cursor-pointer"
             >
               Đăng nhập SSO
             </button>
           </form>
         </div>
 
-        {/* Thử nghiệm nhanh các tài khoản sinh viên mẫu */}
+        {/* Thử nghiệm nhanh các định dạng email có chứa MSSV */}
         <div className="mt-4 pt-3 border-t border-slate-800/80 flex flex-wrap items-center gap-2 text-xs">
-          <span className="text-slate-400 font-medium">Chọn nhanh tài khoản thử nghiệm:</span>
+          <span className="text-slate-400 font-medium">Thử nhanh các định dạng email:</span>
           <button
-            onClick={() => handleQuickStudentSelect('B2101234', 'b2101234@student.ctu.edu.vn')}
-            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-blue-300 rounded-lg border border-slate-700 transition"
-          >
-            B2101234 - Thái Bảo (Đã có ảnh)
-          </button>
-          <button
-            onClick={() => handleQuickStudentSelect('B2001122', 'pvtruyen@ctu.edu.vn')}
+            onClick={() => handleQuickStudentSelect('pvtruyen_b2001122@ctu.edu.vn', 'DI')}
             className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-300 rounded-lg border border-slate-700 transition"
           >
-            B2001122 - pvtruyen@ctu.edu.vn
+            pvtruyen_b2001122@ctu.edu.vn (B2001122 - K46)
           </button>
           <button
-            onClick={() => handleQuickStudentSelect('B2108899', 'b2108899@student.ctu.edu.vn')}
+            onClick={() => handleQuickStudentSelect('b2101234@student.ctu.edu.vn', 'DI')}
+            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-blue-300 rounded-lg border border-slate-700 transition"
+          >
+            b2101234@student.ctu.edu.vn (Thái Bảo - CNTT)
+          </button>
+          <button
+            onClick={() => handleQuickStudentSelect('sv_b2103456@ctu.edu.vn', 'SOE')}
             className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-amber-300 rounded-lg border border-slate-700 transition"
           >
-            B2108899 - Minh Khang (Chưa có ảnh)
+            sv_b2103456@ctu.edu.vn (Kim Ngân - Kinh tế)
           </button>
           <button
-            onClick={() => handleQuickStudentSelect('B9999999', 'b9999999@student.ctu.edu.vn')}
-            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-rose-300 rounded-lg border border-slate-700 transition"
+            onClick={() => handleQuickStudentSelect('b2104567@student.ctu.edu.vn', 'COA')}
+            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-purple-300 rounded-lg border border-slate-700 transition"
           >
-            B9999999 (Không đủ ĐK tốt nghiệp)
+            b2104567@student.ctu.edu.vn (Nông nghiệp)
           </button>
         </div>
       </div>
 
-      {/* 2. Thông báo kiểm tra quyền & Đối chiếu Database */}
+      {/* 2. HIỂN THỊ SỰ KIỆN CỦA TẤT CẢ CÁC ĐƠN VỊ (KHOA / VIỆN)
+          "Tại phân hệ sinh viên, sự kiện của tất cả các đơn vị đều được hiển thị,
+           các đơn vị có quyền tự cấu hình riêng sự kiện của đơn vị mình,
+           sinh viên chọn đơn vị để đăng ký" */}
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h3 className="text-base font-bold text-white flex items-center gap-2">
+              <Building2 className="w-5 h-5 text-amber-400" />
+              Sự Kiện Lễ Tốt Nghiệp Của Tất Cả Các Đơn Vị (Khoa / Viện / Trường Trực Thuộc)
+            </h3>
+            <p className="text-xs text-slate-400">
+              Chọn đơn vị đào tạo của bạn bên dưới để xem chi tiết lịch lễ và đăng ký tham dự.
+            </p>
+          </div>
+          <span className="text-xs font-mono text-slate-400 bg-slate-900 px-3 py-1.5 rounded-xl border border-slate-800">
+            Tổng cộng: {announcements.length} sự kiện đơn vị
+          </span>
+        </div>
+
+        {/* Lưới các thẻ sự kiện của các đơn vị */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {announcements.map((ann) => {
+            const unit = units.find((u) => u.id === ann.unitId);
+            const isSelected = selectedUnitId === ann.unitId;
+            const isStudentUnit = studentMatch && studentMatch.unitId === ann.unitId;
+
+            return (
+              <div
+                key={ann.id}
+                onClick={() => setSelectedUnitId(ann.unitId)}
+                className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between space-y-3 relative overflow-hidden ${
+                  isSelected
+                    ? 'bg-gradient-to-b from-blue-950/80 to-slate-900 border-blue-500 shadow-xl shadow-blue-500/10 ring-1 ring-blue-500'
+                    : 'bg-slate-900/80 border-slate-800 hover:border-slate-700 hover:bg-slate-850'
+                }`}
+              >
+                {/* Huy hiệu đánh dấu đơn vị của sinh viên */}
+                {isStudentUnit && (
+                  <span className="absolute top-2 right-2 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    Đơn vị của bạn
+                  </span>
+                )}
+
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-blue-900/60 text-blue-300 border border-blue-700/50">
+                      {unit?.code || ann.unitId}
+                    </span>
+                    <span className="text-xs font-bold text-slate-300 truncate">
+                      {unit?.shortName || unit?.name}
+                    </span>
+                  </div>
+
+                  <h4 className="text-xs font-semibold text-white line-clamp-2 leading-relaxed">
+                    {ann.title}
+                  </h4>
+                </div>
+
+                <div className="space-y-1.5 text-[11px] text-slate-400 pt-2 border-t border-slate-800/80">
+                  <div className="flex items-center gap-1.5 text-amber-300">
+                    <Calendar className="w-3.5 h-3.5 shrink-0" />
+                    <span>{new Date(ann.ceremonyDate).toLocaleDateString('vi-VN')}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 truncate">
+                    <MapPin className="w-3.5 h-3.5 shrink-0 text-rose-400" />
+                    <span className="truncate">{ann.location}</span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedUnitId(ann.unitId);
+                  }}
+                  className={`w-full py-1.5 rounded-xl text-xs font-medium flex items-center justify-center gap-1 transition ${
+                    isSelected
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-slate-800 text-slate-300 hover:bg-slate-700'
+                  }`}
+                >
+                  <span>{isSelected ? 'Đang chọn đơn vị này' : 'Chọn đăng ký'}</span>
+                  <ArrowRight className="w-3 h-3" />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 3. CHI TIẾT SỰ KIỆN CỦA ĐƠN VỊ ĐƯỢC CHỌN */}
+      {activeAnnouncement && (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
+          <div className="flex items-center space-x-2 text-blue-400 font-semibold text-xs">
+            <FileCheck className="w-4 h-4" />
+            <span>KẾ HOẠCH TỔ CHỨC CỦA {units.find((u) => u.id === activeAnnouncement.unitId)?.name?.toUpperCase() || activeAnnouncement.unitId}</span>
+          </div>
+
+          <h3 className="text-lg md:text-xl font-bold text-white">{activeAnnouncement.title}</h3>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 text-xs text-slate-300 py-1">
+            <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 flex items-center gap-2.5">
+              <Calendar className="w-4 h-4 text-amber-400 shrink-0" />
+              <div>
+                <span className="text-slate-400 block text-[11px]">Ngày tổ chức:</span>
+                <strong className="text-slate-100">{new Date(activeAnnouncement.ceremonyDate).toLocaleString('vi-VN')}</strong>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 flex items-center gap-2.5">
+              <MapPin className="w-4 h-4 text-rose-400 shrink-0" />
+              <div>
+                <span className="text-slate-400 block text-[11px]">Địa điểm:</span>
+                <strong className="text-slate-100">{activeAnnouncement.location}</strong>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 flex items-center gap-2.5">
+              <Shirt className="w-4 h-4 text-blue-400 shrink-0" />
+              <div>
+                <span className="text-slate-400 block text-[11px]">Quy định Lễ phục:</span>
+                <strong className="text-slate-100 truncate block max-w-[180px]">{activeAnnouncement.dressCode}</strong>
+              </div>
+            </div>
+
+            <div className="p-3 rounded-xl bg-slate-950/70 border border-slate-800 flex items-center gap-2.5">
+              <PhoneCall className="w-4 h-4 text-emerald-400 shrink-0" />
+              <div>
+                <span className="text-slate-400 block text-[11px]">Liên hệ hỗ trợ:</span>
+                <strong className="text-slate-100 truncate block max-w-[180px]">{activeAnnouncement.contactSupport}</strong>
+              </div>
+            </div>
+          </div>
+
+          <div className="text-xs text-slate-300 whitespace-pre-line leading-relaxed pt-2 border-t border-slate-800/80">
+            {activeAnnouncement.content}
+          </div>
+        </div>
+      )}
+
+      {/* 4. ĐỐI CHIẾU THÔNG TIN SINH VIÊN (20 TRƯỜNG DỮ LIỆU CHUẨN) */}
       {!emailAuthResult.isCtuEmail ? (
         <div className="bg-rose-950/40 border border-rose-800/80 rounded-2xl p-6 text-rose-200 space-y-2">
           <div className="flex items-center gap-2 text-base font-semibold text-rose-400">
             <AlertCircle className="w-5 h-5 shrink-0" />
-            <span>Địa chỉ Email không thuộc hệ sinh thái Đại học Cần Thơ</span>
+            <span>Địa chỉ Email không thuộc tên miền Đại học Cần Thơ</span>
           </div>
-          <p className="text-sm opacity-90 leading-relaxed">
-            Hệ thống chỉ chấp nhận tài khoản có đuôi kết thúc bằng <code className="font-mono bg-rose-900/60 px-1.5 py-0.5 rounded">@*.ctu.edu.vn</code> (Ví dụ: <em>b2101234@student.ctu.edu.vn</em> hoặc <em>pvtruyen@ctu.edu.vn</em>).
+          <p className="text-xs opacity-90 leading-relaxed">
+            Hệ thống chỉ chấp nhận tài khoản có đuôi kết thúc bằng <code className="font-mono bg-rose-900/60 px-1.5 py-0.5 rounded">*@*ctu.edu.vn</code> (Ví dụ: <em>b2101234@student.ctu.edu.vn</em> hoặc <em>pvtruyen@ctu.edu.vn</em>).
           </p>
         </div>
       ) : !emailAuthResult.extractedMssv ? (
@@ -141,8 +303,8 @@ export const StudentPortal: React.FC<StudentPortalProps> = ({
             <AlertCircle className="w-5 h-5 shrink-0" />
             <span>Không trích xuất được Mã số sinh viên (MSSV) từ email</span>
           </div>
-          <p className="text-sm opacity-90 leading-relaxed">
-            Email <code className="font-mono bg-amber-900/60 px-1.5 py-0.5 rounded">{emailAuthResult.email}</code> là tài khoản cán bộ hoặc không đúng định dạng sinh viên tiêu chuẩn (Bxxxxxxx).
+          <p className="text-xs opacity-90 leading-relaxed">
+            Quy định: Trong phần tên email cần chứa MSSV (*MSSV*@*ctu.edu.vn). Ví dụ: <em>b2101234@student.ctu.edu.vn</em>, <em>pvtruyen_b2001122@ctu.edu.vn</em>.
           </p>
         </div>
       ) : !studentMatch ? (
@@ -151,23 +313,20 @@ export const StudentPortal: React.FC<StudentPortalProps> = ({
             <AlertCircle className="w-5 h-5 shrink-0" />
             <span>MSSV {emailAuthResult.extractedMssv} không có trong danh sách tốt nghiệp đợt này!</span>
           </div>
-          <p className="text-sm opacity-90 leading-relaxed">
-            Hệ thống đã tự động đối chiếu MSSV trích xuất từ email của bạn với cơ sở dữ liệu đợt tốt nghiệp do Quản trị viên Khoa/Viện tải lên. Rất tiếc, bạn chưa có tên trong danh sách đủ điều kiện.
+          <p className="text-xs opacity-90 leading-relaxed">
+            Hệ thống đã tự động đối chiếu MSSV trích xuất từ email của bạn với cơ sở dữ liệu đợt tốt nghiệp do Quản trị viên Khoa/Viện tải lên. Rất tiếc, MSSV này chưa có trong danh sách tốt nghiệp đã ký Quyết định.
           </p>
-          <p className="text-xs text-rose-300">
-            * Vui lòng liên hệ Văn phòng Đoàn - Hội hoặc Trợ lý Đào tạo Khoa để kiểm tra lại điều kiện chuẩn đầu ra (chứng chỉ ngoại ngữ, tin học, học phí).
+          <p className="text-[11px] text-rose-300">
+            * Vui lòng liên hệ Trợ lý Đào tạo đơn vị của bạn để kiểm tra lại điều kiện tốt nghiệp.
           </p>
         </div>
       ) : (
-        /* 3. Sinh viên đủ điều kiện: Hiển thị Profile & Thẻ Tốt nghiệp */
+        /* HỒ SƠ TỐT NGHIỆP ĐẦY ĐỦ 20 TRƯỜNG CỦA SINH VIÊN */
         <div className="space-y-6">
-          {/* Header chúc mừng */}
           <div className="bg-gradient-to-r from-blue-900/60 via-indigo-900/40 to-slate-900 border border-blue-500/30 rounded-2xl p-6 shadow-xl relative overflow-hidden">
-            <div className="absolute right-0 top-0 bottom-0 w-1/3 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-blue-500/10 via-transparent to-transparent pointer-events-none" />
-
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
               <div className="flex items-center space-x-5">
-                {/* Ảnh đại diện hiện tại */}
+                {/* Ảnh thẻ hiện tại */}
                 <div className="relative group">
                   <div className="w-24 h-32 rounded-xl overflow-hidden border-2 border-amber-400/80 shadow-lg bg-slate-950 shrink-0">
                     {studentMatch.photoUrl ? (
@@ -185,14 +344,14 @@ export const StudentPortal: React.FC<StudentPortalProps> = ({
                   </div>
                   <button
                     onClick={() => setIsCropModalOpen(true)}
-                    className="absolute -bottom-2 -right-2 p-2 bg-blue-600 hover:bg-blue-500 text-white rounded-full shadow-lg border border-slate-900 transition"
+                    className="absolute -bottom-2 -right-2 p-2 bg-blue-600 hover:bg-blue-500 text-white rounded-full shadow-lg border border-slate-900 transition cursor-pointer"
                     title="Chỉnh sửa ảnh thẻ"
                   >
                     <Camera className="w-4 h-4" />
                   </button>
                 </div>
 
-                {/* Thông tin hồ sơ tốt nghiệp */}
+                {/* Thông tin vinh danh */}
                 <div className="space-y-1.5">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-blue-500/20 text-blue-300 border border-blue-500/30">
@@ -206,6 +365,12 @@ export const StudentPortal: React.FC<StudentPortalProps> = ({
                     <span className="px-2.5 py-0.5 rounded-full text-xs bg-slate-800 text-slate-300 border border-slate-700">
                       {studentMatch.cohort}
                     </span>
+                    {studentMatch.danhHieu && (
+                      <span className="px-2.5 py-0.5 rounded-full text-xs bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1 font-semibold">
+                        <Award className="w-3.5 h-3.5" />
+                        {studentMatch.danhHieu}
+                      </span>
+                    )}
                   </div>
 
                   <h3 className="text-2xl font-bold text-white flex items-center gap-2">
@@ -213,23 +378,17 @@ export const StudentPortal: React.FC<StudentPortalProps> = ({
                     <UserCheck className="w-5 h-5 text-emerald-400" />
                   </h3>
 
-                  <p className="text-sm text-slate-300">
-                    Ngành: <span className="font-semibold text-blue-400">{studentMatch.major}</span> • GPA: <span className="font-bold text-amber-400">{studentMatch.gpa.toFixed(2)}</span> / 4.0
+                  <p className="text-xs text-slate-300">
+                    Ngành: <span className="font-semibold text-blue-400">{studentMatch.major}</span> • Chuyên ngành: <span className="text-slate-200">{studentMatch.chuyenNganh}</span>
                   </p>
-
-                  {studentMatch.thesisTitle && (
-                    <p className="text-xs text-slate-400 max-w-xl italic">
-                      Đề tài tốt nghiệp: &quot;{studentMatch.thesisTitle}&quot;
-                    </p>
-                  )}
                 </div>
               </div>
 
-              {/* Nút thao tác chính */}
+              {/* Nút hành động */}
               <div className="flex flex-col sm:flex-row gap-2.5 shrink-0">
                 <button
                   onClick={() => setIsCropModalOpen(true)}
-                  className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-medium flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30 transition cursor-pointer"
+                  className="px-4 py-2.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold flex items-center justify-center gap-2 shadow-lg shadow-blue-600/30 transition cursor-pointer"
                 >
                   <Camera className="w-4 h-4" />
                   {studentMatch.photoUrl ? 'Cập nhật lại ảnh thẻ' : 'Tải lên & Cắt ảnh thẻ (AI)'}
@@ -237,20 +396,89 @@ export const StudentPortal: React.FC<StudentPortalProps> = ({
 
                 <button
                   onClick={() => setShowQrTicket(!showQrTicket)}
-                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition cursor-pointer"
+                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition cursor-pointer"
                 >
                   <QrCode className="w-4 h-4 text-amber-400" />
                   {showQrTicket ? 'Thu gọn thẻ' : 'Mở Thẻ Tốt Nghiệp QR'}
                 </button>
               </div>
             </div>
+
+            {/* Bảng chi tiết 20 trường thông tin tốt nghiệp của sinh viên */}
+            <div className="mt-6 pt-5 border-t border-slate-800/80">
+              <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                <BookOpen className="w-4 h-4 text-blue-400" /> Hồ Sơ Tốt Nghiệp Chi Tiết (Dữ Liệu Chính Thức)
+              </h4>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3 text-xs">
+                <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block">Quyết định số:</span>
+                  <strong className="text-slate-200 truncate block">{studentMatch.qd}</strong>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block">Ngày ký:</span>
+                  <strong className="text-slate-200">{studentMatch.ngayKy}</strong>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block">Lớp:</span>
+                  <strong className="text-blue-300 font-mono">{studentMatch.lop}</strong>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block">Điểm TB tích lũy:</span>
+                  <strong className="text-amber-400 font-mono">{studentMatch.gpa.toFixed(2)} / 4.0</strong>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block">Điểm rèn luyện:</span>
+                  <strong className="text-emerald-400 font-mono">{studentMatch.diemRl} điểm</strong>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block">Tín chỉ tích lũy (TCTL):</span>
+                  <strong className="text-slate-200 font-mono">{studentMatch.tctl} TC</strong>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block">Ngày sinh:</span>
+                  <span className="text-slate-300">{studentMatch.ngaySinh}</span>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block">Giới tính:</span>
+                  <span className="text-slate-300">{studentMatch.nu === '1' || studentMatch.nu === 'Nu' ? 'Nữ' : 'Nam'}</span>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block">Dân tộc:</span>
+                  <span className="text-slate-300">{studentMatch.danToc}</span>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block">Đợt tốt nghiệp:</span>
+                  <span className="text-slate-300">{studentMatch.dotTn}</span>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block">Đơn vị quản lý:</span>
+                  <strong className="text-blue-400">{studentMatch.donVi}</strong>
+                </div>
+
+                <div className="p-2.5 rounded-xl bg-slate-950/70 border border-slate-800">
+                  <span className="text-[10px] text-slate-400 block">Trạng thái ảnh:</span>
+                  <span className="text-emerald-400 font-medium">
+                    {studentMatch.photoUrl ? 'Đã có ảnh thẻ' : 'Chưa có ảnh'}
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* 4. Thẻ Tốt Nghiệp Điện Tử có Mã QR (Hiển thị khi bấm nút) */}
+          {/* THẺ TỐT NGHIỆP ĐIỆN TỬ (QR CODE CHO OPERATOR QUÉT) */}
           {showQrTicket && (
             <div className="bg-slate-900 border border-amber-500/40 rounded-2xl p-6 shadow-2xl relative">
               <div className="max-w-xl mx-auto bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950/80 border-2 border-amber-400/70 rounded-2xl p-6 shadow-2xl relative overflow-hidden">
-                {/* Header Thẻ */}
                 <div className="text-center pb-4 border-b border-amber-500/30 space-y-1">
                   <p className="text-[11px] uppercase tracking-widest text-amber-400 font-semibold">
                     Đại học Cần Thơ • Can Tho University
@@ -258,12 +486,12 @@ export const StudentPortal: React.FC<StudentPortalProps> = ({
                   <h4 className="text-lg font-bold text-white tracking-wide">
                     THẺ THAM DỰ LỄ TỐT NGHIỆP 2026
                   </h4>
-                  <p className="text-xs text-slate-400">Đợt 1 - Hội trường Rùa CTU</p>
+                  <p className="text-xs text-slate-400">
+                    {units.find((u) => u.id === studentMatch.unitId)?.name || studentMatch.donVi}
+                  </p>
                 </div>
 
-                {/* Nội dung Thẻ */}
                 <div className="py-6 flex flex-col sm:flex-row items-center gap-6 justify-between">
-                  {/* Ảnh thẻ & Thông tin */}
                   <div className="flex items-center space-x-4">
                     <div className="w-24 h-32 rounded-lg overflow-hidden border-2 border-slate-700 bg-slate-950 shrink-0">
                       {studentMatch.photoUrl ? (
@@ -283,6 +511,7 @@ export const StudentPortal: React.FC<StudentPortalProps> = ({
                       <h5 className="text-base font-bold text-white">{studentMatch.fullName}</h5>
                       <p className="text-xs font-mono text-blue-400 font-bold">MSSV: {studentMatch.mssv}</p>
                       <p className="text-xs text-slate-300">{studentMatch.major}</p>
+                      <p className="text-[11px] text-slate-400">Lớp: {studentMatch.lop} • Khóa: {studentMatch.cohort}</p>
                       {honorInfo && (
                         <span className={`inline-block px-2 py-0.5 rounded text-[11px] border ${honorInfo.badgeClass}`}>
                           {honorInfo.label}
@@ -291,7 +520,7 @@ export const StudentPortal: React.FC<StudentPortalProps> = ({
                     </div>
                   </div>
 
-                  {/* Khối Mã QR Sân khấu */}
+                  {/* Mã QR */}
                   <div className="flex flex-col items-center bg-white p-3 rounded-xl shadow-lg border border-slate-200 shrink-0">
                     <svg className="w-32 h-32" viewBox="0 0 25 25">
                       {generateQrMatrix(generateStudentQrPayload(studentMatch.mssv)).map((row, r) =>
@@ -313,7 +542,6 @@ export const StudentPortal: React.FC<StudentPortalProps> = ({
                   </div>
                 </div>
 
-                {/* Footer Thẻ */}
                 <div className="pt-4 border-t border-amber-500/30 flex items-center justify-between text-[11px] text-slate-400">
                   <span className="flex items-center gap-1 text-amber-300">
                     <Sparkles className="w-3.5 h-3.5" /> Dùng để quét tại cánh gà trước khi lên bục
@@ -328,118 +556,6 @@ export const StudentPortal: React.FC<StudentPortalProps> = ({
               </div>
             </div>
           )}
-
-          {/* 5. Thông tin Sự kiện Lễ Tốt nghiệp (Tin tức từ Unit Admin) */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Cột Chi tiết Sự kiện */}
-            <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-              <div className="flex items-center space-x-2 text-blue-400 font-semibold text-sm">
-                <FileCheck className="w-4 h-4" />
-                <span>THÔNG BÁO CHÍNH THỨC TỪ KHOA / VIỆN</span>
-              </div>
-
-              <h3 className="text-xl font-bold text-white">{announcement.title}</h3>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs text-slate-300 py-2">
-                <div className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-800/60 border border-slate-700/60">
-                  <Calendar className="w-4 h-4 text-amber-400 shrink-0" />
-                  <div>
-                    <span className="text-slate-400 block text-[11px]">Thời gian:</span>
-                    <strong className="text-slate-100">07:30 - Thứ Bảy, 28/11/2026</strong>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-800/60 border border-slate-700/60">
-                  <MapPin className="w-4 h-4 text-rose-400 shrink-0" />
-                  <div>
-                    <span className="text-slate-400 block text-[11px]">Địa điểm:</span>
-                    <strong className="text-slate-100">{announcement.location}</strong>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-800/60 border border-slate-700/60">
-                  <Shirt className="w-4 h-4 text-blue-400 shrink-0" />
-                  <div>
-                    <span className="text-slate-400 block text-[11px]">Lễ phục:</span>
-                    <strong className="text-slate-100">{announcement.dressCode}</strong>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2.5 p-3 rounded-xl bg-slate-800/60 border border-slate-700/60">
-                  <PhoneCall className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <div>
-                    <span className="text-slate-400 block text-[11px]">Hỗ trợ:</span>
-                    <strong className="text-slate-100">{announcement.contactSupport}</strong>
-                  </div>
-                </div>
-              </div>
-
-              <div className="text-sm text-slate-300 whitespace-pre-line leading-relaxed pt-2 border-t border-slate-800">
-                {announcement.content}
-              </div>
-            </div>
-
-            {/* Cột Hướng dẫn Quy trình Sân khấu */}
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl space-y-4">
-              <h4 className="font-semibold text-white text-sm flex items-center gap-2">
-                <Clock className="w-4 h-4 text-blue-400" /> Quy trình Bước lên Bục Danh Dự
-              </h4>
-
-              <div className="space-y-3 text-xs text-slate-300">
-                <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-800/40 border border-slate-800">
-                  <span className="w-5 h-5 rounded-full bg-blue-600/30 text-blue-400 font-bold flex items-center justify-center shrink-0 text-[11px]">
-                    1
-                  </span>
-                  <div>
-                    <strong className="text-slate-100 block">Kiểm duyệt ảnh thẻ</strong>
-                    Tải ảnh chân dung trước ngày lễ. AI sẽ kiểm duyệt 01 khuôn mặt để lưu file <code className="text-blue-400 font-mono">{studentMatch.mssv}.png</code>.
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-800/40 border border-slate-800">
-                  <span className="w-5 h-5 rounded-full bg-blue-600/30 text-blue-400 font-bold flex items-center justify-center shrink-0 text-[11px]">
-                    2
-                  </span>
-                  <div>
-                    <strong className="text-slate-100 block">Xếp hàng tại Cánh gà</strong>
-                    Có mặt tại lối vào cánh gà sân khấu Hội trường Rùa trước khi ngành của bạn được xướng tên.
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-800/40 border border-slate-800">
-                  <span className="w-5 h-5 rounded-full bg-blue-600/30 text-blue-400 font-bold flex items-center justify-center shrink-0 text-[11px]">
-                    3
-                  </span>
-                  <div>
-                    <strong className="text-slate-100 block">Quét mã QR Thẻ</strong>
-                    Đưa màn hình điện thoại hoặc thẻ in cho Operator quét. Bạn sẽ được xếp vào Hàng đợi thời gian thực.
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-3 p-3 rounded-xl bg-slate-800/40 border border-slate-800">
-                  <span className="w-5 h-5 rounded-full bg-amber-600/30 text-amber-400 font-bold flex items-center justify-center shrink-0 text-[11px]">
-                    4
-                  </span>
-                  <div>
-                    <strong className="text-slate-100 block">Khoảnh khắc Tỏa sáng</strong>
-                    Khi nghe xướng tên và thấy ảnh mình xuất hiện trên màn hình LED lớn, bạn tự tin bước lên nhận bằng từ Ban Giám Hiệu!
-                  </div>
-                </div>
-              </div>
-
-              {/* Trạng thái ảnh */}
-              <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between">
-                <span className="text-xs text-slate-400">Trạng thái ảnh thẻ:</span>
-                {studentMatch.photoUrl ? (
-                  <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-400">
-                    <CheckCircle className="w-3.5 h-3.5" /> Đã duyệt (Sẵn sàng)
-                  </span>
-                ) : (
-                  <span className="text-xs font-semibold text-amber-400">Chưa nộp ảnh</span>
-                )}
-              </div>
-            </div>
-          </div>
         </div>
       )}
 
