@@ -1,0 +1,6 @@
+{
+  "name": "CTU GradStage - Quản Lý & Trình Chiếu Lễ Tốt Nghiệp",
+  "description": "Hệ thống quản lý hồ sơ tốt nghiệp, kiểm duyệt ảnh thẻ AI và trình chiếu hàng đợi sân khấu thời gian thực.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
